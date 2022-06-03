@@ -90,13 +90,13 @@ TRAINING_CONFIG = {
     "batch_size": 256,
     "epochs": 10,
     "learning_rate": 1e-4,
-    "num_train_steps": 1_000_000,
+    "num_train_steps": 100000,
     # Percentage of training steps used for learning rate warmup.
-    "warmup_percentage": 0.1,
+    "warmup_percentage": 0.01,
 }
 
 FINETUNING_CONFIG = {
     "batch_size": 32,
     "epochs": 3,
-    "learning_rates": [5e-5, 4e-5, 3e-5, 2e-5],
+    "learning_rates": [5e-5, 4e-5],
 }

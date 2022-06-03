@@ -522,14 +522,26 @@ class BertModel(keras.Model):
         )
 
         self._transformer_layers = []
+
+        # for i in range(num_layers):
+        #     layer = TransformerEncoderBlock(
+        #         num_attention_heads=num_attention_heads,
+        #         inner_size=inner_size,
+        #         inner_activation=self.inner_activation,
+        #         hidden_dropout=hidden_dropout,
+        #         attention_dropout=attention_dropout,
+        #         norm_first=norm_first,
+        #         kernel_initializer=self.initializer,
+        #         name="transformer/layer_%d" % i,
+        #     )
+        #     self._transformer_layers.append(layer)
+
         for i in range(num_layers):
-            layer = TransformerEncoderBlock(
-                num_attention_heads=num_attention_heads,
-                inner_size=inner_size,
-                inner_activation=self.inner_activation,
-                hidden_dropout=hidden_dropout,
-                attention_dropout=attention_dropout,
-                norm_first=norm_first,
+            layer = keras_nlp.layers.TransformerEncoder(
+                num_heads=num_attention_heads,
+                intermediate_dim=inner_size,
+                activation=self.inner_activation,
+                dropout=hidden_dropout,
                 kernel_initializer=self.initializer,
                 name="transformer/layer_%d" % i,
             )
@@ -558,11 +570,18 @@ class BertModel(keras.Model):
         embeddings = self._embedding_norm_layer(embeddings)
         embeddings = self._embedding_dropout(embeddings)
 
-        attention_mask = make_attention_mask(embeddings, input_mask)
+        # attention_mask = make_attention_mask(embeddings, input_mask)
+
+        # x = embeddings
+        # for layer in self._transformer_layers:
+        #     x = layer(x, attention_mask=attention_mask)
+        # return x
+
+        padding_mask = input_mask
 
         x = embeddings
         for layer in self._transformer_layers:
-            x = layer(x, attention_mask=attention_mask)
+            x = layer(x, padding_mask=padding_mask)
         return x
 
     def get_embedding_table(self):

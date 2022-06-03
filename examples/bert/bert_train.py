@@ -17,17 +17,24 @@ import shutil
 import sys
 
 import os
+import datetime
 
 import tensorflow as tf
+import tensorflow_addons as tfa
 from absl import app
 from absl import flags
+from absl import logging
 from tensorflow import keras
+import google.cloud.logging
 
 from examples.bert.bert_config import MODEL_CONFIGS
 from examples.bert.bert_config import PREPROCESSING_CONFIG
 from examples.bert.bert_config import TRAINING_CONFIG
 from examples.bert.bert_model import BertModel
+from examples.bert.adamw import AdamWeightDecay
 from examples.utils.scripting_utils import list_filenames_for_arg
+
+import threading
 
 FLAGS = flags.FLAGS
 
@@ -55,6 +62,7 @@ flags.DEFINE_bool(
     "Skip restoring from checkpoint if True",
 )
 
+flags.DEFINE_bool("use_tpu", False, "Use TPU for training if True")
 
 flags.DEFINE_string(
     "model_size",
@@ -328,6 +336,7 @@ class LinearDecayWithWarmup(keras.optimizers.schedules.LearningRateSchedule):
     def __call__(self, step):
         peak_lr = tf.cast(self.learning_rate, dtype=tf.float32)
         warmup = tf.cast(self.warmup_steps, dtype=tf.float32)
+        step = tf.cast(step, dtype=tf.float32)
         training = tf.cast(self.train_steps, dtype=tf.float32)
 
         is_warmup = step < warmup
@@ -382,7 +391,16 @@ def decode_record(record):
 
 
 def main(_):
-    print(f"Reading input data from {FLAGS.input_files}")
+    # Instantiates a client
+    client = google.cloud.logging.Client()
+
+    # Retrieves a Cloud Logging handler based on the environment
+    # you're running in and integrates the handler with the
+    # Python logging module. By default this captures all logs
+    # at INFO level and higher
+    client.setup_logging()
+
+    logging.info(f"Reading input data from {FLAGS.input_files}")
     input_filenames = list_filenames_for_arg(FLAGS.input_files)
     if not input_filenames:
         print("No input files found. Check `input_files` flag.")
@@ -395,11 +413,22 @@ def main(_):
 
     model_config = MODEL_CONFIGS[FLAGS.model_size]
 
-    resolver = tf.distribute.cluster_resolver.TPUClusterResolver(tpu='local')
-    tf.config.experimental_connect_to_cluster(resolver)
-    # This is the TPU initialization code that has to be at the beginning.
-    tf.tpu.experimental.initialize_tpu_system(resolver)
-    strategy = tf.distribute.TPUStrategy(resolver)
+    if FLAGS.use_tpu:
+        if not tf.config.list_logical_devices("TPU"):
+            raise RuntimeError(
+                "`use_tpu` is set to True while no TPU is found. Please "
+                "check if your machine has TPU or set `use_tpu` as False."
+            )
+        # Connect to TPU and create TPU strategy.
+        resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
+            tpu="local"
+        )
+        tf.config.experimental_connect_to_cluster(resolver)
+        tf.tpu.experimental.initialize_tpu_system(resolver)
+        strategy = tf.distribute.TPUStrategy(resolver)
+    else:
+        # Use default strategy if not using TPU.
+        strategy = tf.distribute.get_strategy()
 
     # Decode and batch data.
     dataset = tf.data.TFRecordDataset(input_filenames)
@@ -433,18 +462,17 @@ def main(_):
             num_warmup_steps=num_warmup_steps,
             num_train_steps=num_train_steps,
         )
-        optimizer = keras.optimizers.Adam(learning_rate=learning_rate_schedule)
-
+        # optimizer = keras.optimizers.Adam(learning_rate=learning_rate_schedule)
+        # optimizer = tfa.optimizers.AdamW(weight_decay=0.01, learning_rate=learning_rate_schedule, )
+        optimizer = AdamWeightDecay(learning_rate=learning_rate_schedule, weight_decay_rate=0.01, exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
         pretraining_model = BertPretrainer(model)
         pretraining_model.compile(
             optimizer=optimizer,
         )
 
-
-    
     epochs = TRAINING_CONFIG["epochs"]
     steps_per_epoch = num_train_steps // epochs
-    
+
     callbacks = []
     if FLAGS.checkpoint_save_directory is not None:
         if os.path.exists(FLAGS.checkpoint_save_directory):
@@ -463,7 +491,13 @@ def main(_):
             tf.keras.callbacks.BackupAndRestore(backup_dir=checkpoint_path)
         )
 
-    # TODO(mattdangerw): Add TPU strategy support.
+    from keras.utils import io_utils
+    io_utils.ABSL_LOGGING.enable = True
+    io_utils.print_msg('This is a test')
+
+    log_dir = "logs/bert-small-pretraining/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    callbacks.append(tensorboard_callback)
     pretraining_model.fit(
         dataset,
         epochs=epochs,

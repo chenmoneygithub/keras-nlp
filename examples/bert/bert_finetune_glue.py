@@ -13,6 +13,8 @@
 # limitations under the License.
 """Run finetuning on a GLUE task."""
 
+import tempfile
+
 import datasets
 import keras_tuner
 import tensorflow as tf
@@ -253,6 +255,7 @@ def main(_):
         max_trials=4,
         overwrite=True,
         project_name="hyperparameter_tuner_results",
+        directory=tempfile.mkdtemp(),
     )
 
     tuner.search(
