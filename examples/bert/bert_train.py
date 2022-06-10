@@ -20,7 +20,6 @@ import os
 import datetime
 
 import tensorflow as tf
-import tensorflow_addons as tfa
 from absl import app
 from absl import flags
 from absl import logging
@@ -33,6 +32,7 @@ from examples.bert.bert_config import TRAINING_CONFIG
 from examples.bert.bert_model import BertModel
 from examples.bert.adamw import AdamWeightDecay
 from examples.utils.scripting_utils import list_filenames_for_arg
+from examples.utils.data_utils import list_blobs_with_prefix
 
 import threading
 
@@ -42,6 +42,18 @@ flags.DEFINE_string(
     "input_files",
     None,
     "Comma seperated list of directories, globs or files.",
+)
+
+flags.DEFINE_bool(
+    "read_from_gcs",
+    True,
+    "Read data from cloud storage",
+)
+
+flags.DEFINE_string(
+    "gcs_bucket",
+    None,
+    "GCS bucket",
 )
 
 flags.DEFINE_string(
@@ -62,11 +74,6 @@ flags.DEFINE_bool(
     "Skip restoring from checkpoint if True",
 )
 
-<<<<<<< HEAD
-flags.DEFINE_bool("use_tpu", False, "Use TPU for training if True")
-
-=======
->>>>>>> master
 flags.DEFINE_string(
     "model_size",
     "tiny",
@@ -353,7 +360,7 @@ class LinearDecayWithWarmup(keras.optimizers.schedules.LearningRateSchedule):
                 0.0, peak_lr * (training - step) / (training - warmup)
             ),
         )
-    
+
     def get_config(self):
         return {
             "learning_rate": self.learning_rate,
@@ -404,7 +411,12 @@ def main(_):
     client.setup_logging()
 
     logging.info(f"Reading input data from {FLAGS.input_files}")
-    input_filenames = list_filenames_for_arg(FLAGS.input_files)
+    if FLAGS.read_from_gcs:
+        input_filenames = list_blobs_with_prefix(
+            FLAGS.gcs_bucket, FLAGS.input_files
+        )
+    else:
+        input_filenames = list_filenames_for_arg(FLAGS.input_files)
     if not input_filenames:
         print("No input files found. Check `input_files` flag.")
         sys.exit(1)
@@ -416,26 +428,11 @@ def main(_):
 
     model_config = MODEL_CONFIGS[FLAGS.model_size]
 
-<<<<<<< HEAD
-    if FLAGS.use_tpu:
-        if not tf.config.list_logical_devices("TPU"):
-            raise RuntimeError(
-                "`use_tpu` is set to True while no TPU is found. Please "
-                "check if your machine has TPU or set `use_tpu` as False."
-            )
-        # Connect to TPU and create TPU strategy.
-        resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
-            tpu="local"
-        )
-        tf.config.experimental_connect_to_cluster(resolver)
-        tf.tpu.experimental.initialize_tpu_system(resolver)
-=======
     if tf.config.list_logical_devices("TPU"):
         # Connect to TPU and create TPU strategy.
         resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
             tpu="local"
         )
->>>>>>> master
         strategy = tf.distribute.TPUStrategy(resolver)
     else:
         # Use default strategy if not using TPU.
@@ -473,14 +470,13 @@ def main(_):
             num_warmup_steps=num_warmup_steps,
             num_train_steps=num_train_steps,
         )
-<<<<<<< HEAD
         # optimizer = keras.optimizers.Adam(learning_rate=learning_rate_schedule)
         # optimizer = tfa.optimizers.AdamW(weight_decay=0.01, learning_rate=learning_rate_schedule, )
-        optimizer = AdamWeightDecay(learning_rate=learning_rate_schedule, weight_decay_rate=0.01, exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
-=======
-        optimizer = keras.optimizers.Adam(learning_rate=learning_rate_schedule)
-
->>>>>>> master
+        optimizer = AdamWeightDecay(
+            learning_rate=learning_rate_schedule,
+            weight_decay_rate=0.01,
+            exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"],
+        )
         pretraining_model = BertPretrainer(model)
         pretraining_model.compile(
             optimizer=optimizer,
@@ -507,16 +503,18 @@ def main(_):
             tf.keras.callbacks.BackupAndRestore(backup_dir=checkpoint_path)
         )
 
-<<<<<<< HEAD
     from keras.utils import io_utils
-    io_utils.ABSL_LOGGING.enable = True
-    io_utils.print_msg('This is a test')
 
-    log_dir = "logs/bert-small-pretraining/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+    io_utils.ABSL_LOGGING.enable = True
+    io_utils.print_msg("This is a test")
+
+    log_dir = "logs/bert-small-pretraining/" + datetime.datetime.now().strftime(
+        "%Y%m%d-%H%M%S"
+    )
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(
+        log_dir=log_dir, histogram_freq=1
+    )
     callbacks.append(tensorboard_callback)
-=======
->>>>>>> master
     pretraining_model.fit(
         dataset,
         epochs=epochs,
