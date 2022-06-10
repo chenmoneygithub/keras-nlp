@@ -62,8 +62,11 @@ flags.DEFINE_bool(
     "Skip restoring from checkpoint if True",
 )
 
+<<<<<<< HEAD
 flags.DEFINE_bool("use_tpu", False, "Use TPU for training if True")
 
+=======
+>>>>>>> master
 flags.DEFINE_string(
     "model_size",
     "tiny",
@@ -413,6 +416,7 @@ def main(_):
 
     model_config = MODEL_CONFIGS[FLAGS.model_size]
 
+<<<<<<< HEAD
     if FLAGS.use_tpu:
         if not tf.config.list_logical_devices("TPU"):
             raise RuntimeError(
@@ -425,6 +429,13 @@ def main(_):
         )
         tf.config.experimental_connect_to_cluster(resolver)
         tf.tpu.experimental.initialize_tpu_system(resolver)
+=======
+    if tf.config.list_logical_devices("TPU"):
+        # Connect to TPU and create TPU strategy.
+        resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
+            tpu="local"
+        )
+>>>>>>> master
         strategy = tf.distribute.TPUStrategy(resolver)
     else:
         # Use default strategy if not using TPU.
@@ -462,9 +473,14 @@ def main(_):
             num_warmup_steps=num_warmup_steps,
             num_train_steps=num_train_steps,
         )
+<<<<<<< HEAD
         # optimizer = keras.optimizers.Adam(learning_rate=learning_rate_schedule)
         # optimizer = tfa.optimizers.AdamW(weight_decay=0.01, learning_rate=learning_rate_schedule, )
         optimizer = AdamWeightDecay(learning_rate=learning_rate_schedule, weight_decay_rate=0.01, exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"])
+=======
+        optimizer = keras.optimizers.Adam(learning_rate=learning_rate_schedule)
+
+>>>>>>> master
         pretraining_model = BertPretrainer(model)
         pretraining_model.compile(
             optimizer=optimizer,
@@ -491,6 +507,7 @@ def main(_):
             tf.keras.callbacks.BackupAndRestore(backup_dir=checkpoint_path)
         )
 
+<<<<<<< HEAD
     from keras.utils import io_utils
     io_utils.ABSL_LOGGING.enable = True
     io_utils.print_msg('This is a test')
@@ -498,6 +515,8 @@ def main(_):
     log_dir = "logs/bert-small-pretraining/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     callbacks.append(tensorboard_callback)
+=======
+>>>>>>> master
     pretraining_model.fit(
         dataset,
         epochs=epochs,
