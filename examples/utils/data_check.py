@@ -28,22 +28,23 @@ def decode_record(record):
 
 def preview_tfrecord(filepath):
     """Pretty prints a single record from a tfrecord file."""
-    dataset = tf.data.TFRecordDataset(os.path.expanduser(filepath))
+    # dataset = tf.data.TFRecordDataset(os.path.expanduser(filepath))
+    dataset = tf.data.TFRecordDataset(filepath)
     num_total = 0
     num_dense = 0
-    early_end = 5000000000
+    early_end = 1000
     print(f"GEEZ TOTAL NUMBER OF RECORDS: {num_total}")
     print(f"GEEZ NUMBER OF DENSE RECORDS: {num_dense}")
     for item in dataset:
-        # if num_total >= early_end:
-        #     break
+        if num_total >= early_end:
+            break
         num_total += 1
-        # decoded = decode_record(item)
-        # input_mask = decoded["input_mask"]
-        # num_valid = tf.reduce_sum(input_mask)
-        # if num_valid > 480:
-        #     num_dense += 1
+        decoded = decode_record(item)
+        input_mask = decoded["input_mask"]
+        num_valid = tf.reduce_sum(input_mask)
+        if num_valid > 480:
+            num_dense += 1
     print(f"GEEZ TOTAL NUMBER OF RECORDS: {num_total}")
     print(f"GEEZ NUMBER OF DENSE RECORDS: {num_dense}")
 
-preview_tfrecord('/mnt/disks/persist/bert/bert-pretraining-data-512-76/shard_296.tfrecord')
+preview_tfrecord('gs://chenmoney-testing-east/bert-pretraining-data/shard_1.tfrecord')

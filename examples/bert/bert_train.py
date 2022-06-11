@@ -427,11 +427,11 @@ def main(_):
             vocab.append(line.strip())
 
     model_config = MODEL_CONFIGS[FLAGS.model_size]
-
+    import pdb; pdb.set_trace()
     if tf.config.list_logical_devices("TPU"):
         # Connect to TPU and create TPU strategy.
         resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
-            tpu="local"
+            tpu="chenmoney-tpu-pod", project="keras-team-gcp", zone="us-east1-d",
         )
         strategy = tf.distribute.TPUStrategy(resolver)
     else:
@@ -505,8 +505,9 @@ def main(_):
 
     from keras.utils import io_utils
 
-    io_utils.ABSL_LOGGING.enable = True
-    io_utils.print_msg("This is a test")
+    # io_utils.ABSL_LOGGING.enable = True
+    # io_utils.print_msg("This is a test")
+    # tf.keras.utils.disable_interactive_logging()
 
     log_dir = "logs/bert-small-pretraining/" + datetime.datetime.now().strftime(
         "%Y%m%d-%H%M%S"
@@ -520,6 +521,7 @@ def main(_):
         epochs=epochs,
         steps_per_epoch=steps_per_epoch,
         callbacks=callbacks,
+
     )
 
     print(f"Saving to {FLAGS.saved_model_output}")
