@@ -5,6 +5,6 @@ python3 examples/bert/bert_train.py \
     --vocab_file bert_vocab_uncased.txt \
     --model_size tiny \
     --num_train_steps=20 \
-    --checkpoint_save_directory="saved_checkpoints/bert_test" \
+    --checkpoint_save_directory="bert-training/saved_checkpoints/bert_test" \
     --skip_restore=True \
-    --saved_model_output="saved_models/bert_test" \
+    --saved_model_output="bert-training/saved_models/bert_test" \

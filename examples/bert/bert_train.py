@@ -34,6 +34,8 @@ from examples.bert.adamw import AdamWeightDecay
 from examples.utils.scripting_utils import list_filenames_for_arg
 from examples.utils.data_utils import list_blobs_with_prefix
 
+from google.cloud import storage
+
 import threading
 
 FLAGS = flags.FLAGS
@@ -492,21 +494,33 @@ def main(_):
 
     callbacks = []
     if FLAGS.checkpoint_save_directory is not None:
-        if os.path.exists(FLAGS.checkpoint_save_directory):
-            if not os.path.isdir(FLAGS.checkpoint_save_directory):
-                raise ValueError(
-                    "`checkpoint_save_directory` should be a directory, but "
-                    f"{FLAGS.checkpoint_save_directory} is not a directory."
-                    " Please set `checkpoint_save_directory` as a directory."
-                )
+        if FLAGS.read_from_gcs:
+            storage_client = storage.Client()
+            bucket = storage_client.get_bucket(FLAGS.gcs_bucket)
+            blobs = bucket.list_blobs(prefix=FLAGS.checkpoint_save_directory)
+            if FLAGS.skip_restore:
+                for blob in blobs:
+                    blob.delete()
+            checkpoint_path = "gs://" + FLAGS.gcs_bucket + "/" + FLAGS.checkpoint_save_directory
+            callbacks.append(
+                tf.keras.callbacks.BackupAndRestore(backup_dir=checkpoint_path)
+            )
+        else:
+            if os.path.exists(FLAGS.checkpoint_save_directory):
+                if not os.path.isdir(FLAGS.checkpoint_save_directory):
+                    raise ValueError(
+                        "`checkpoint_save_directory` should be a directory, but "
+                        f"{FLAGS.checkpoint_save_directory} is not a directory."
+                        " Please set `checkpoint_save_directory` as a directory."
+                    )
 
-            elif FLAGS.skip_restore:
-                # Clear up the directory if users want to skip restoring.
-                shutil.rmtree(FLAGS.checkpoint_save_directory)
-        checkpoint_path = FLAGS.checkpoint_save_directory + "/checkpoint"
-        callbacks.append(
-            tf.keras.callbacks.BackupAndRestore(backup_dir=checkpoint_path)
-        )
+                elif FLAGS.skip_restore:
+                    # Clear up the directory if users want to skip restoring.
+                    shutil.rmtree(FLAGS.checkpoint_save_directory)
+            checkpoint_path = FLAGS.checkpoint_save_directory
+            callbacks.append(
+                tf.keras.callbacks.BackupAndRestore(backup_dir=checkpoint_path)
+            )
 
     # from keras.utils import io_utils
 
@@ -514,7 +528,7 @@ def main(_):
     # io_utils.print_msg("This is a test")
     tf.keras.utils.disable_interactive_logging()
 
-    log_dir = "logs/bert-base-pretraining/" + datetime.datetime.now().strftime(
+    log_dir = "gs://chenmoney-testing-east/bert-training/logs/bert-base-pretraining/" + datetime.datetime.now().strftime(
         "%Y%m%d-%H%M%S"
     )
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
@@ -530,8 +544,13 @@ def main(_):
         verbose=1,
     )
 
-    print(f"Saving to {FLAGS.saved_model_output}")
-    model.save(FLAGS.saved_model_output)
+    if FLAGS.read_from_gcs:
+        model_path = "gs://" + FLAGS.gcs_bucket + "/" + FLAGS.saved_model_output
+        print(f"Saving to {model_path}")
+        model.save(model_path)
+    else:
+        print(f"Saving to {FLAGS.saved_model_output}")
+        model.save(FLAGS.saved_model_output)
 
 
 if __name__ == "__main__":

@@ -4,9 +4,16 @@ from tensorflow import keras
 
 x, y = tf.random.uniform(shape=[2, 5]), tf.constant([1, 0])
 
-resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
-    tpu="chenmoney-nimei", project="keras-team-gcp", zone="us-east1-d",
+resolver = tf.distribute.cluster_resolver.TPUClusterResolver(
+    tpu="chenmoney-nimei", project="keras-team-gcp", zone="us-east1-d", 
+    # coordinator_address="10.142.0.38:8470", coordinator_name="coordinator",
 )
+tf.config.experimental_connect_to_cluster(resolver)
+tf.tpu.experimental.initialize_tpu_system(resolver)
+
+# resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
+#     tpu="chenmoney-nimei", project="keras-team-gcp", zone="us-east1-d",
+# )
 strategy = tf.distribute.TPUStrategy(resolver)
 
 dataset = tf.data.Dataset.from_tensor_slices((x, y)).batch(2).repeat()
