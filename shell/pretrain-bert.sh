@@ -3,8 +3,8 @@ python3 examples/bert/bert_train.py \
     --read_from_gcs True \
     --gcs_bucket=chenmoney-testing-east \
     --vocab_file bert_vocab_uncased.txt \
-    --model_size base \
-    --num_train_steps=500000 \
-    --checkpoint_save_directory="saved_checkpoints/bert_base_500K" \
+    --model_size tiny \
+    --num_train_steps=20 \
+    --checkpoint_save_directory="saved_checkpoints/bert_test" \
     --skip_restore=True \
-    --saved_model_output="saved_models/bert_base_500K" \
+    --saved_model_output="saved_models/bert_test" \

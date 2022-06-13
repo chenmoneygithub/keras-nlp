@@ -427,12 +427,14 @@ def main(_):
             vocab.append(line.strip())
 
     model_config = MODEL_CONFIGS[FLAGS.model_size]
-    import pdb; pdb.set_trace()
-    if tf.config.list_logical_devices("TPU"):
+    if True or tf.config.list_logical_devices("TPU"):
         # Connect to TPU and create TPU strategy.
         resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
-            tpu="chenmoney-tpu-pod", project="keras-team-gcp", zone="us-east1-d",
+            tpu="chenmoney-nimei", project="keras-team-gcp", zone="us-east1-d",
         )
+        # resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
+        #     tpu="local",
+        # )
         strategy = tf.distribute.TPUStrategy(resolver)
     else:
         # Use default strategy if not using TPU.
@@ -446,6 +448,7 @@ def main(_):
     )
     dataset = dataset.batch(TRAINING_CONFIG["batch_size"], drop_remainder=True)
     dataset = dataset.repeat()
+    dataset = strategy.experimental_distribute_dataset(dataset)
 
     with strategy.scope():
         # Create a BERT model the input config.
@@ -453,7 +456,6 @@ def main(_):
             vocab_size=len(vocab),
             **model_config,
         )
-        # Make sure model has been called.
         model(model.inputs)
         model.summary()
 
@@ -481,6 +483,9 @@ def main(_):
         pretraining_model.compile(
             optimizer=optimizer,
         )
+    # # Make sure model has been called.
+    # model(model.inputs)
+    # model.summary()
 
     epochs = TRAINING_CONFIG["epochs"]
     steps_per_epoch = num_train_steps // epochs
@@ -503,25 +508,26 @@ def main(_):
             tf.keras.callbacks.BackupAndRestore(backup_dir=checkpoint_path)
         )
 
-    from keras.utils import io_utils
+    # from keras.utils import io_utils
 
     # io_utils.ABSL_LOGGING.enable = True
     # io_utils.print_msg("This is a test")
-    # tf.keras.utils.disable_interactive_logging()
+    tf.keras.utils.disable_interactive_logging()
 
-    log_dir = "logs/bert-small-pretraining/" + datetime.datetime.now().strftime(
+    log_dir = "logs/bert-base-pretraining/" + datetime.datetime.now().strftime(
         "%Y%m%d-%H%M%S"
     )
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
         log_dir=log_dir, histogram_freq=1
     )
     callbacks.append(tensorboard_callback)
+
     pretraining_model.fit(
         dataset,
         epochs=epochs,
         steps_per_epoch=steps_per_epoch,
         callbacks=callbacks,
-
+        verbose=1,
     )
 
     print(f"Saving to {FLAGS.saved_model_output}")
