@@ -40,6 +40,8 @@ def preview_tfrecord(filepath):
             break
         num_total += 1
         decoded = decode_record(item)
+        print(decoded)
+        break
         input_mask = decoded["input_mask"]
         num_valid = tf.reduce_sum(input_mask)
         if num_valid > 480:

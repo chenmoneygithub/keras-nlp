@@ -432,7 +432,7 @@ def main(_):
     if True or tf.config.list_logical_devices("TPU"):
         # Connect to TPU and create TPU strategy.
         resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
-            tpu="chenmoney-nimei", project="keras-team-gcp", zone="us-east1-d",
+            tpu="chenmoney-tpu-nana", project="keras-team-gcp", zone="us-east1-d",
         )
         # resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
         #     tpu="local",
