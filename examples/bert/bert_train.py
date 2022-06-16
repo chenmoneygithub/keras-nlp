@@ -401,6 +401,15 @@ def decode_record(record):
         example[name] = value
     return example
 
+class SaveModelCallback(keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        logging(f"Saving the model at epoch {epoch}.")
+        if FLAGS.read_from_gcs:
+            model_path = "gs://" + FLAGS.gcs_bucket + "/" + FLAGS.saved_model_output + "_" + str(epoch)
+            model.save(model_path)
+        else:
+            model.save(FLAGS.saved_model_output)
+
 
 def main(_):
     # Instantiates a client
@@ -481,6 +490,7 @@ def main(_):
             weight_decay_rate=0.01,
             exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"],
         )
+        # optimizer = keras.optimizers.experimental.AdamW(learning_rate=learning_rate_schedule, weight_decay=0.01,)
         pretraining_model = BertPretrainer(model)
         pretraining_model.compile(
             optimizer=optimizer,
@@ -492,7 +502,7 @@ def main(_):
     epochs = TRAINING_CONFIG["epochs"]
     steps_per_epoch = num_train_steps // epochs
 
-    callbacks = []
+    callbacks = [SaveModelCallback()]
     if FLAGS.checkpoint_save_directory is not None:
         if FLAGS.read_from_gcs:
             storage_client = storage.Client()
