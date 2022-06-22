@@ -31,6 +31,7 @@ from examples.bert.bert_config import PREPROCESSING_CONFIG
 from examples.bert.bert_config import TRAINING_CONFIG
 from examples.bert.bert_model import BertModel
 from examples.bert.adamw import AdamWeightDecay
+from examples.bert.adamw_experimental import AdamWNew
 from examples.utils.scripting_utils import list_filenames_for_arg
 from examples.utils.data_utils import list_blobs_with_prefix
 
@@ -327,7 +328,7 @@ class BertPretrainer(keras.Model):
         self.loss_tracker.update_state(loss)
         self.lm_loss_tracker.update_state(lm_loss)
         self.nsp_loss_tracker.update_state(nsp_loss)
-        self.lm_accuracy.update_state(data["masked_lm_ids"], lm_preds)
+        self.lm_accuracy.update_state(data["masked_lm_ids"], lm_preds, sample_weight=lm_weights)
         self.nsp_accuracy.update_state(data["next_sentence_labels"], nsp_preds)
         return {m.name: m.result() for m in self.metrics}
 
@@ -403,12 +404,12 @@ def decode_record(record):
 
 class SaveModelCallback(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
-        logging(f"Saving the model at epoch {epoch}.")
+        logging.info(f"Saving the model at epoch {epoch}.")
         if FLAGS.read_from_gcs:
             model_path = "gs://" + FLAGS.gcs_bucket + "/" + FLAGS.saved_model_output + "_" + str(epoch)
-            model.save(model_path)
+            self.model.save(model_path)
         else:
-            model.save(FLAGS.saved_model_output)
+            self.model.save(FLAGS.saved_model_output)
 
 
 def main(_):
@@ -441,7 +442,7 @@ def main(_):
     if True or tf.config.list_logical_devices("TPU"):
         # Connect to TPU and create TPU strategy.
         resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
-            tpu="chenmoney-tpu-nana", project="keras-team-gcp", zone="us-east1-d",
+            tpu="chenmoney-geez-pod", project="keras-team-gcp", zone="us-east1-d",
         )
         # resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
         #     tpu="local",
@@ -485,12 +486,13 @@ def main(_):
         )
         # optimizer = keras.optimizers.Adam(learning_rate=learning_rate_schedule)
         # optimizer = tfa.optimizers.AdamW(weight_decay=0.01, learning_rate=learning_rate_schedule, )
-        optimizer = AdamWeightDecay(
-            learning_rate=learning_rate_schedule,
-            weight_decay_rate=0.01,
-            exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"],
-        )
-        # optimizer = keras.optimizers.experimental.AdamW(learning_rate=learning_rate_schedule, weight_decay=0.01,)
+        # optimizer = AdamWeightDecay(
+        #     learning_rate=learning_rate_schedule,
+        #     weight_decay_rate=0.01,
+        #     exclude_from_weight_decay=["LayerNorm", "layer_norm", "bias"],
+        # )
+        optimizer = AdamWNew(learning_rate=learning_rate_schedule, weight_decay=0.01,)
+        optimizer.exclude_from_weight_decay(var_names=["LayerNorm", "layer_norm", "bias"])
         pretraining_model = BertPretrainer(model)
         pretraining_model.compile(
             optimizer=optimizer,

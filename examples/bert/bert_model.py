@@ -198,17 +198,25 @@ class BertModel(keras.Model):
         self.attention_dropout = attention_dropout
         self.norm_first = norm_first
 
-        self._embedding_layer = OnDeviceEmbedding(
-            vocab_size=vocab_size,
-            embedding_width=hidden_size,
-            initializer=self.initializer,
-            name="word_embeddings",
-        )
+        # self._embedding_layer = OnDeviceEmbedding(
+        #     vocab_size=vocab_size,
+        #     embedding_width=hidden_size,
+        #     initializer=self.initializer,
+        #     name="word_embeddings",
+        # )
 
-        self._position_embedding_layer = keras_nlp.layers.PositionEmbedding(
-            initializer=self.initializer,
+        # self._position_embedding_layer = keras_nlp.layers.PositionEmbedding(
+        #     initializer=self.initializer,
+        #     sequence_length=max_sequence_length,
+        #     name="position_embedding",
+        # )
+
+        self._embedding_layer = keras_nlp.layers.TokenAndPositionEmbedding(
+            vocabulary_size=vocab_size,
             sequence_length=max_sequence_length,
-            name="position_embedding",
+            embedding_dim=hidden_size,
+            embeddings_initializer=self.initializer,
+            name="token_and_positional_embeddings",
         )
 
         self._type_embedding_layer = OnDeviceEmbedding(
@@ -259,10 +267,11 @@ class BertModel(keras.Model):
 
         word_embeddings = None
         word_embeddings = self._embedding_layer(input_ids)
-        position_embeddings = self._position_embedding_layer(word_embeddings)
+        # position_embeddings = self._position_embedding_layer(word_embeddings)
         type_embeddings = self._type_embedding_layer(segment_ids)
 
-        embeddings = word_embeddings + position_embeddings + type_embeddings
+        # embeddings = word_embeddings + position_embeddings + type_embeddings
+        embeddings = word_embeddings + type_embeddings
         embeddings = self._embedding_norm_layer(embeddings)
         embeddings = self._embedding_dropout(embeddings)
 
@@ -274,7 +283,7 @@ class BertModel(keras.Model):
         return x
 
     def get_embedding_table(self):
-        return self._embedding_layer.embeddings
+        return self._embedding_layer.token_embedding.embeddings
 
     def get_config(self):
         config = super().get_config()

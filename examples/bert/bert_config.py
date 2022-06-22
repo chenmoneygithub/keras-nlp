@@ -88,7 +88,7 @@ PREPROCESSING_CONFIG = {
 
 TRAINING_CONFIG = {
     "batch_size": 256,
-    "epochs": 3,
+    "epochs": 10,
     "learning_rate": 1e-4,
     "num_train_steps": 1000000,
     # Percentage of training steps used for learning rate warmup.
