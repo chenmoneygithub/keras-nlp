@@ -177,7 +177,7 @@ def generate_submission_files(finetuning_model, test_ds, idx_order):
     filename = FLAGS.submission_directory + "/" + filenames[FLAGS.task_name]
     labelname = labelnames.get(FLAGS.task_name)
 
-    predictions = finetuning_model.predict(test_ds.take(1))
+    predictions = finetuning_model.predict(test_ds)
     if FLAGS.task_name == "stsb":
         predictions = np.squeeze(predictions)
     else:
@@ -207,12 +207,15 @@ def generate_submission_files(finetuning_model, test_ds, idx_order):
 
 
 def main(_):
+    resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(tpu="local")
+    strategy = tf.distribute.TPUStrategy(resolver)
     train_ds, test_ds, val_ds, idx_order = load_data(FLAGS.task_name)
     # ----- Custom code block starts -----
-    bert_model = keras_nlp.models.Bert.from_preset("bert_tiny_uncased_en")
-    bert_preprocessor = keras_nlp.models.BertPreprocessor.from_preset(
-        "bert_tiny_uncased_en"
-    )
+    with strategy.scope():
+        bert_model = keras_nlp.models.Bert.from_preset("bert_base_uncased_en")
+        bert_preprocessor = keras_nlp.models.BertPreprocessor.from_preset(
+            "bert_base_uncased_en"
+        )
 
     # Users should change this function to implement the preprocessing required
     # by the model.
@@ -226,52 +229,53 @@ def main(_):
     test_ds = preprocess_data(preprocess_fn, test_ds)
 
     if FLAGS.load_finetuning_model:
-        finetuning_model = tf.keras.models.load_model(
-            FLAGS.load_finetuning_model
-        )
+        with strategy.scope():
+            finetuning_model = tf.keras.models.load_model(
+                FLAGS.load_finetuning_model
+            )
     else:
-        loss = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-        metrics = [keras.metrics.SparseCategoricalAccuracy()]
-        if FLAGS.task_name == "stsb":
-            num_classes = 1
-            loss = keras.losses.MeanSquaredError()
-            metrics = [keras.metrics.MeanSquaredError()]
-        elif FLAGS.task_name in (
-            "mnli",
-            "mnli_mismatched",
-            "mnli_matched",
-            "ax",
-        ):
-            num_classes = 3
-        else:
-            num_classes = 2
+        with strategy.scope():
+            loss = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+            metrics = [keras.metrics.SparseCategoricalAccuracy()]
+            if FLAGS.task_name == "stsb":
+                num_classes = 1
+                loss = keras.losses.MeanSquaredError()
+                metrics = [keras.metrics.MeanSquaredError()]
+            elif FLAGS.task_name in (
+                "mnli",
+                "mnli_mismatched",
+                "mnli_matched",
+                "ax",
+            ):
+                num_classes = 3
+            else:
+                num_classes = 2
 
-        # ----- Custom code block starts -----
-        # Users should change this `BertClassifier` to your own classifier.
-        # Commonly the classifier is simply your model + several dense layers,
-        # please refer to "Make the Finetuning Model" section in README for
-        # detailed instructions.
-        finetuning_model = keras_nlp.models.BertClassifier(
-            backbone=bert_model,
-            num_classes=num_classes,
-        )
-        # ----- Custom code block ends -----
+            # ----- Custom code block starts -----
+            # Users should change this `BertClassifier` to your own classifier.
+            # Commonly the classifier is simply your model + several dense layers,
+            # please refer to "Make the Finetuning Model" section in README for
+            # detailed instructions.
+            finetuning_model = keras_nlp.models.BertClassifier(
+                backbone=bert_model,
+                num_classes=num_classes,
+            )
+            # ----- Custom code block ends -----
 
-        finetuning_model.compile(
-            optimizer=tf.keras.optimizers.Adam(FLAGS.learning_rate),
-            loss=loss,
-            metrics=metrics,
-        )
+            finetuning_model.compile(
+                optimizer=tf.keras.optimizers.Adam(FLAGS.learning_rate),
+                loss=loss,
+                metrics=metrics,
+            )
 
         finetuning_model.fit(
             train_ds,
             validation_data=val_ds,
             epochs=FLAGS.epochs,
-            steps_per_epoch=1,
         )
-
-    if FLAGS.submission_directory:
-        generate_submission_files(finetuning_model, test_ds, idx_order)
+    with strategy.scope():
+        if FLAGS.submission_directory:
+            generate_submission_files(finetuning_model, test_ds, idx_order)
 
     if FLAGS.save_finetuning_model:
         finetuning_model.save(FLAGS.save_finetuning_model)
