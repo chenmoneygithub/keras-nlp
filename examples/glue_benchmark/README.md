@@ -12,7 +12,7 @@ and run the command below:
 
 ```shell
 python glue.py --task_name="mrpc" --batch_size=32 \
-    --submission_file_path="glue_submissions/"
+    --submission_directory="glue_submissions/"
 ```
 
 By default the script finetunes on the tiniest BERT model we have available 
@@ -94,6 +94,7 @@ its performance.
 | batch_size                 	| Data batch size                                 	| 32      	|
 | epochs                     	| Number of epochs to run finetuning.             	| 2       	|
 | learning_rate              	| The optimizer's learning rate                   	| 5e-5    	|
+| tpu_name               	    | The TPU name to connect to                        | None    	|
 | submission_directory       	| The file path to save the glue submission file. 	| None    	|
 | load_finetuning_model 	    | The path to load the finetuning model.          	| None    	|
 | save_finetuning_model 	    | The path to save the finetuning model.          	| None    	|

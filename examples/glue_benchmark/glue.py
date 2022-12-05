@@ -50,6 +50,12 @@ flags.DEFINE_float(
 )
 
 flags.DEFINE_string(
+    "tpu_name",
+    None,
+    "The name of TPU to connect to.",
+)
+
+flags.DEFINE_string(
     "submission_directory",
     None,
     "The directory to save the glue submission file.",
@@ -129,11 +135,10 @@ def load_data(task_name):
         )
 
     # Extract out the index order of test dataset.
-    idx_order = get_test_data_idx_order(test_ds)
-
+    idx_order = test_ds.map(lambda data: data["idx"])
+    
     train_ds = train_ds.map(split_features, num_parallel_calls=tf.data.AUTOTUNE)
     test_ds = test_ds.map(split_features, num_parallel_calls=tf.data.AUTOTUNE)
-
     validation_ds = validation_ds.map(
         split_features, num_parallel_calls=tf.data.AUTOTUNE
     )
@@ -177,15 +182,16 @@ def generate_submission_files(finetuning_model, test_ds, idx_order):
     filename = FLAGS.submission_directory + "/" + filenames[FLAGS.task_name]
     labelname = labelnames.get(FLAGS.task_name)
 
-    predictions = finetuning_model.predict(test_ds)
+    predictions = finetuning_model.predict(test_ds.take(1))
     if FLAGS.task_name == "stsb":
         predictions = np.squeeze(predictions)
     else:
         predictions = np.argmax(predictions, -1)
 
     # Map the predictions to the right index order.
+    idx_order = list(idx_order.as_numpy_iterator())
     contents = ["" for _ in idx_order]
-    for i, pred in enumerate(predictions):
+    for idx, pred in zip(idx_order, predictions):
         if labelname:
             pred_value = labelname[int(pred)]
         else:
@@ -194,7 +200,7 @@ def generate_submission_files(finetuning_model, test_ds, idx_order):
                 pred_value = min(pred_value, 5)
                 pred_value = max(pred_value, 0)
                 pred_value = f"{pred_value:.3f}"
-        contents[idx_order[i]] = pred_value
+        contents[idx] = pred_value
 
     with tf.io.gfile.GFile(filename, "w") as f:
         # GLUE requires a format of index + tab + prediction.
@@ -205,14 +211,16 @@ def generate_submission_files(finetuning_model, test_ds, idx_order):
         for idx, value in enumerate(contents):
             writer.writerow([idx, value])
 
+def connect_to_tpu(tpu_name):
+    resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(tpu=tpu_name)
+    return tf.distribute.TPUStrategy(resolver)
 
 def main(_):
-    resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(tpu="local")
-    strategy = tf.distribute.TPUStrategy(resolver)
+    if FLAGS.tpu_name: 
+        strategy = connect_to_tpu(FLAGS.tpu_name)
     train_ds, test_ds, val_ds, idx_order = load_data(FLAGS.task_name)
     # ----- Custom code block starts -----
     with strategy.scope():
-        bert_model = keras_nlp.models.Bert.from_preset("bert_base_uncased_en")
         bert_preprocessor = keras_nlp.models.BertPreprocessor.from_preset(
             "bert_base_uncased_en"
         )
@@ -256,6 +264,7 @@ def main(_):
             # Commonly the classifier is simply your model + several dense layers,
             # please refer to "Make the Finetuning Model" section in README for
             # detailed instructions.
+            bert_model = keras_nlp.models.Bert.from_preset("bert_base_uncased_en")
             finetuning_model = keras_nlp.models.BertClassifier(
                 backbone=bert_model,
                 num_classes=num_classes,
@@ -272,6 +281,7 @@ def main(_):
             train_ds,
             validation_data=val_ds,
             epochs=FLAGS.epochs,
+            steps_per_epoch=1,
         )
     with strategy.scope():
         if FLAGS.submission_directory:

@@ -67,9 +67,7 @@ class GPT2(keras.Model):
     Example usage:
     ```python
     input_data = {
-        "token_ids": tf.random.uniform(
-            shape=(1, 12), dtype=tf.int64, maxval=model.vocabulary_size
-        ),
+        "token_ids": tf.ones(shape=(1, 12), dtype=tf.int64),
         "padding_mask": tf.constant(
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0], shape=(1, 12)
         ),
@@ -214,9 +212,7 @@ class GPT2(keras.Model):
         Examples:
         ```python
         input_data = {
-            "token_ids": tf.random.uniform(
-                shape=(1, 12), dtype=tf.int64, maxval=model.vocabulary_size
-            ),
+            "token_ids": tf.ones(shape=(1, 12), dtype=tf.int64),
             "padding_mask": tf.constant(
                 [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0], shape=(1, 12)
             ),
