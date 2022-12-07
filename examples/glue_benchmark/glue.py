@@ -182,7 +182,7 @@ def generate_submission_files(finetuning_model, test_ds, idx_order):
     filename = FLAGS.submission_directory + "/" + filenames[FLAGS.task_name]
     labelname = labelnames.get(FLAGS.task_name)
 
-    predictions = finetuning_model.predict(test_ds.take(1))
+    predictions = finetuning_model.predict(test_ds)
     if FLAGS.task_name == "stsb":
         predictions = np.squeeze(predictions)
     else:
@@ -270,9 +270,18 @@ def main(_):
                 num_classes=num_classes,
             )
             # ----- Custom code block ends -----
-
+            lr = tf.keras.optimizers.schedules.PolynomialDecay(
+                FLAGS.learning_rate, 
+                decay_steps=train_ds.cardinality() * FLAGS.epochs,
+                end_learning_rate=0.,
+            )
+            optimizer = tf.keras.optimizers.experimental.AdamW(
+                lr, 
+                weight_decay=0.01, 
+                global_clipnorm=1.0)
+            optimizer.exclude_from_weight_decay(var_names=["LayerNorm", "layer_norm", "bias"])
             finetuning_model.compile(
-                optimizer=tf.keras.optimizers.Adam(FLAGS.learning_rate),
+                optimizer=optimizer,
                 loss=loss,
                 metrics=metrics,
             )
@@ -281,13 +290,13 @@ def main(_):
             train_ds,
             validation_data=val_ds,
             epochs=FLAGS.epochs,
-            steps_per_epoch=1,
         )
     with strategy.scope():
         if FLAGS.submission_directory:
             generate_submission_files(finetuning_model, test_ds, idx_order)
-
     if FLAGS.save_finetuning_model:
+        # The learning rate cannot be serialized in TF 2.10.
+        finetuning_model.optimizer = None
         finetuning_model.save(FLAGS.save_finetuning_model)
 
 
