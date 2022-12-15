@@ -52,7 +52,8 @@ flags.DEFINE_float(
 flags.DEFINE_string(
     "tpu_name",
     None,
-    "The name of TPU to connect to.",
+    "The name of TPU to connect to. If None, no TPU will be used. If you only "
+    "have one TPU, use `local`",
 )
 
 flags.DEFINE_string(
@@ -215,15 +216,25 @@ def connect_to_tpu(tpu_name):
     resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(tpu=tpu_name)
     return tf.distribute.TPUStrategy(resolver)
 
+def connect_to_tpu(tpu_name):
+    resolver = tf.distribute.cluster_resolver.TPUClusterResolver.connect(
+        tpu=tpu_name
+    )
+    return tf.distribute.TPUStrategy(resolver)
+
+
 def main(_):
-    if FLAGS.tpu_name: 
+    if FLAGS.tpu_name:
         strategy = connect_to_tpu(FLAGS.tpu_name)
+    else:
+        # Use default strategy is not using TPU.
+        strategy = tf.distribute.get_strategy()
+
     train_ds, test_ds, val_ds, idx_order = load_data(FLAGS.task_name)
     # ----- Custom code block starts -----
-    with strategy.scope():
-        bert_preprocessor = keras_nlp.models.BertPreprocessor.from_preset(
-            "bert_base_uncased_en"
-        )
+    bert_preprocessor = keras_nlp.models.BertPreprocessor.from_preset(
+        "bert_base_en_uncased"
+    )
 
     # Users should change this function to implement the preprocessing required
     # by the model.
@@ -264,22 +275,25 @@ def main(_):
             # Commonly the classifier is simply your model + several dense layers,
             # please refer to "Make the Finetuning Model" section in README for
             # detailed instructions.
-            bert_model = keras_nlp.models.Bert.from_preset("bert_base_uncased_en")
+            bert_model = keras_nlp.models.BertBackbone.from_preset(
+                "bert_base_en_uncased"
+            )
             finetuning_model = keras_nlp.models.BertClassifier(
                 backbone=bert_model,
                 num_classes=num_classes,
             )
             # ----- Custom code block ends -----
             lr = tf.keras.optimizers.schedules.PolynomialDecay(
-                FLAGS.learning_rate, 
+                FLAGS.learning_rate,
                 decay_steps=train_ds.cardinality() * FLAGS.epochs,
-                end_learning_rate=0.,
+                end_learning_rate=0.0,
             )
             optimizer = tf.keras.optimizers.experimental.AdamW(
-                lr, 
-                weight_decay=0.01, 
-                global_clipnorm=1.0)
-            optimizer.exclude_from_weight_decay(var_names=["LayerNorm", "layer_norm", "bias"])
+                lr, weight_decay=0.01, global_clipnorm=1.0
+            )
+            optimizer.exclude_from_weight_decay(
+                var_names=["LayerNorm", "layer_norm", "bias"]
+            )
             finetuning_model.compile(
                 optimizer=optimizer,
                 loss=loss,
@@ -295,7 +309,7 @@ def main(_):
         if FLAGS.submission_directory:
             generate_submission_files(finetuning_model, test_ds, idx_order)
     if FLAGS.save_finetuning_model:
-        # The learning rate cannot be serialized in TF 2.10.
+        # Don't need to save the optimizer.
         finetuning_model.optimizer = None
         finetuning_model.save(FLAGS.save_finetuning_model)
 
