@@ -232,14 +232,14 @@ def main(_):
 
     train_ds, test_ds, val_ds, idx_order = load_data(FLAGS.task_name)
     # ----- Custom code block starts -----
-    bert_preprocessor = keras_nlp.models.BertPreprocessor.from_preset(
-        "bert_base_en_uncased"
+    roberta_preprocessor = keras_nlp.models.RobertaPreprocessor.from_preset(
+        "roberta_base"
     )
 
     # Users should change this function to implement the preprocessing required
     # by the model.
     def preprocess_fn(feature, label):
-        return bert_preprocessor(feature), label
+        return roberta_preprocessor(feature), label
 
     # ----- Custom code block ends -----
 
@@ -275,11 +275,11 @@ def main(_):
             # Commonly the classifier is simply your model + several dense layers,
             # please refer to "Make the Finetuning Model" section in README for
             # detailed instructions.
-            bert_model = keras_nlp.models.BertBackbone.from_preset(
-                "bert_base_en_uncased"
+            roberta_model = keras_nlp.models.RobertaBackbone.from_preset(
+                "roberta_base"
             )
-            finetuning_model = keras_nlp.models.BertClassifier(
-                backbone=bert_model,
+            finetuning_model = keras_nlp.models.RobertaClassifier(
+                backbone=roberta_model,
                 num_classes=num_classes,
             )
             # ----- Custom code block ends -----
