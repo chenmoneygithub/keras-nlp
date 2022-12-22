@@ -232,14 +232,14 @@ def main(_):
 
     train_ds, test_ds, val_ds, idx_order = load_data(FLAGS.task_name)
     # ----- Custom code block starts -----
-    roberta_preprocessor = keras_nlp.models.RobertaPreprocessor.from_preset(
-        "roberta_base"
+    xlmr_preprocessor = keras_nlp.models.XLMRobertaPreprocessor.from_preset(
+        "xlm_roberta_base"
     )
 
     # Users should change this function to implement the preprocessing required
     # by the model.
     def preprocess_fn(feature, label):
-        return roberta_preprocessor(feature), label
+        return xlmr_preprocessor(feature), label
 
     # ----- Custom code block ends -----
 
@@ -275,11 +275,11 @@ def main(_):
             # Commonly the classifier is simply your model + several dense layers,
             # please refer to "Make the Finetuning Model" section in README for
             # detailed instructions.
-            roberta_model = keras_nlp.models.RobertaBackbone.from_preset(
-                "roberta_base"
+            xlmr_model = keras_nlp.models.XLMRobertaBackbone.from_preset(
+                "xlm_roberta_base"
             )
-            finetuning_model = keras_nlp.models.RobertaClassifier(
-                backbone=roberta_model,
+            finetuning_model = keras_nlp.models.XLMRobertaClassifier(
+                backbone=xlmr_model,
                 num_classes=num_classes,
             )
             # ----- Custom code block ends -----
@@ -289,7 +289,7 @@ def main(_):
                 end_learning_rate=0.0,
             )
             optimizer = tf.keras.optimizers.experimental.AdamW(
-                lr, weight_decay=0.01, global_clipnorm=1.0
+                lr, weight_decay=0.0
             )
             optimizer.exclude_from_weight_decay(
                 var_names=["LayerNorm", "layer_norm", "bias"]
