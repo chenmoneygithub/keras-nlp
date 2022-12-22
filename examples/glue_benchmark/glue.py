@@ -232,14 +232,14 @@ def main(_):
 
     train_ds, test_ds, val_ds, idx_order = load_data(FLAGS.task_name)
     # ----- Custom code block starts -----
-    xlmr_preprocessor = keras_nlp.models.XLMRobertaPreprocessor.from_preset(
-        "xlm_roberta_base"
+    deberta_preprocessor = keras_nlp.models.DebertaV3Preprocessor.from_preset(
+        "deberta_v3_base"
     )
 
     # Users should change this function to implement the preprocessing required
     # by the model.
     def preprocess_fn(feature, label):
-        return xlmr_preprocessor(feature), label
+        return deberta_preprocessor(feature), label
 
     # ----- Custom code block ends -----
 
@@ -275,11 +275,11 @@ def main(_):
             # Commonly the classifier is simply your model + several dense layers,
             # please refer to "Make the Finetuning Model" section in README for
             # detailed instructions.
-            xlmr_model = keras_nlp.models.XLMRobertaBackbone.from_preset(
-                "xlm_roberta_base"
+            deberta_model = keras_nlp.models.DebertaV3Backbone.from_preset(
+                "deberta_v3_base"
             )
-            finetuning_model = keras_nlp.models.XLMRobertaClassifier(
-                backbone=xlmr_model,
+            finetuning_model = keras_nlp.models.DebertaV3Classifier(
+                backbone=deberta_model,
                 num_classes=num_classes,
             )
             # ----- Custom code block ends -----

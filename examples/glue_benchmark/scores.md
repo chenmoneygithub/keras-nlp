@@ -139,3 +139,84 @@ We choose a special setting for WNLI from other tasks.
 | AX        | Matthew's Corr        |      40.6 |
 
 See the actual submission in this [link](https://gluebenchmark.com/submission/gnG9xUQGkjfVq6loRQYKTcM1YjG3/-NJS0XAX1o9p8DJst3wM). 
+
+
+## XLM-R
+
+Test target is `keras_nlp.models.XLMRobertaClassifier()`.
+
+### Hyperparameter Settings
+
+#### WNLI
+
+We choose a special setting for WNLI from other tasks.
+
+- Learning Rate: 
+    We use a `PolynomialDecay` learning rate, with `initial_learning_rate=1e-5`.
+    ```python
+    lr = tf.keras.optimizers.schedules.PolynomialDecay(
+        1e-5,
+        decay_steps={total_training_steps},
+        end_learning_rate=0.0,
+    )
+    ```
+- Optimizer:
+    We use `Adam` optimizer.
+
+    ```python
+    optimizer = tf.keras.optimizers.Adam(lr)
+    ```
+- Others:
+    | Hyperparameter Name | Value |
+    |---------------------|-------|
+    | batch_size          | 32    |
+    | epochs              | 6     |
+    | dropout             | 0.1   |
+
+#### Other GLUE Tasks
+
+- Learning Rate: 
+    We use a `PolynomialDecay` learning rate, with `initial_learning_rate=2e-5`.
+    ```python
+    lr = tf.keras.optimizers.schedules.PolynomialDecay(
+        2e-5,
+        decay_steps={total_training_steps},
+        end_learning_rate=0.0,
+    )
+    ```
+- Optimizer:
+    We use `AdamW` optimizer, and exclude `bias` and variables in 
+    `LayerNormalization` from weight decay.
+
+    ```python
+    optimizer = tf.keras.optimizers.experimental.AdamW(
+        lr, weight_decay=0.01, global_clipnorm=1.0
+    )
+    optimizer.exclude_from_weight_decay(
+        var_names=["LayerNorm", "layer_norm", "bias"]
+    )
+    ```
+- Others:
+    | Hyperparameter Name | Value |
+    |---------------------|-------|
+    | batch_size          | 32    |
+    | epochs              | 3     |
+    | dropout             | 0.1   |
+
+### Benchmark Score
+
+| Task Name | Metrics               | Score     |
+|-----------|-----------------------|-----------|
+| CoLA      | Matthew's Corr        | 56.3      |
+| SST-2     | Accuracy              | 96.1     |
+| MRPC      | F1 / Accuracy         | 89.8/86.3 |
+| STSB      | Pearson-Spearman Corr | 88.4/87.7 |
+| QQP       | F1 / Accuracy         | 72.3/89.0 |
+| MNLI_M    | Accuracy              |      87.7 |
+| MNLI_Mis  | Accuracy              |      87.1 |
+| QNLI      | Accuracy              |      92.8 |
+| RTE       | Accuracy              | 69.2     |
+| WNLI      | Accuracy              | 65.1    |
+| AX        | Matthew's Corr        |      40.6 |
+
+See the actual submission in this [link](https://gluebenchmark.com/submission/gnG9xUQGkjfVq6loRQYKTcM1YjG3/-NJS0XAX1o9p8DJst3wM). 

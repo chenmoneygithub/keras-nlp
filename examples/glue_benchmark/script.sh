@@ -1,4 +1,4 @@
-for task in cola mrpc rte stsb qnli qqp; do
+for task in cola mrpc rte stsb qnli qqp sst2; do
   python3 glue.py --task_name="$task" --submission_directory="glue_submissions/" --batch_size=32  --tpu_name="local" --epochs=3 --learning_rate=2e-5 --submission_directory="glue_submissions/"
 done
 
