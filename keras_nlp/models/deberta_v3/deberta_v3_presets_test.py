@@ -17,42 +17,40 @@ import pytest
 import tensorflow as tf
 from absl.testing import parameterized
 
-from keras_nlp.models.xlm_roberta.xlm_roberta_backbone import XLMRobertaBackbone
-from keras_nlp.models.xlm_roberta.xlm_roberta_classifier import (
-    XLMRobertaClassifier,
+from keras_nlp.models.deberta_v3.deberta_v3_backbone import DebertaV3Backbone
+from keras_nlp.models.deberta_v3.deberta_v3_classifier import (
+    DebertaV3Classifier,
 )
-from keras_nlp.models.xlm_roberta.xlm_roberta_preprocessor import (
-    XLMRobertaPreprocessor,
+from keras_nlp.models.deberta_v3.deberta_v3_preprocessor import (
+    DebertaV3Preprocessor,
 )
-from keras_nlp.models.xlm_roberta.xlm_roberta_tokenizer import (
-    XLMRobertaTokenizer,
-)
+from keras_nlp.models.deberta_v3.deberta_v3_tokenizer import DebertaV3Tokenizer
 
 
 @pytest.mark.large
-class XLMRobertaPresetSmokeTest(tf.test.TestCase, parameterized.TestCase):
+class DebertaV3PresetSmokeTest(tf.test.TestCase, parameterized.TestCase):
     """
-    A smoke test for XLM-RoBERTa presets we run continuously.
+    A smoke test for DeBERTa presets we run continuously.
 
     This only tests the smallest weights we have available. Run with:
-    `pytest keras_nlp/models/xlm_roberta/xlm_roberta_presets_test.py --run_large`
+    `pytest keras_nlp/models/deberta/deberta_presets_test.py --run_large`
     """
 
     def test_tokenizer_output(self):
-        tokenizer = XLMRobertaTokenizer.from_preset(
-            "xlm_roberta_base",
+        tokenizer = DebertaV3Tokenizer.from_preset(
+            "deberta_v3_extra_small",
         )
         outputs = tokenizer("The quick brown fox.")
-        expected_outputs = [581, 63773, 119455, 6, 147797, 5]
+        expected_outputs = [279, 1538, 3258, 16123, 260]
         self.assertAllEqual(outputs, expected_outputs)
 
     def test_preprocessor_output(self):
-        preprocessor = XLMRobertaPreprocessor.from_preset(
-            "xlm_roberta_base",
+        preprocessor = DebertaV3Preprocessor.from_preset(
+            "deberta_v3_extra_small",
             sequence_length=4,
         )
         outputs = preprocessor("The quick brown fox.")["token_ids"]
-        expected_outputs = [0, 581, 63773, 2]
+        expected_outputs = [1, 279, 1538, 2]
         self.assertAllEqual(outputs, expected_outputs)
 
     @parameterized.named_parameters(
@@ -63,13 +61,13 @@ class XLMRobertaPresetSmokeTest(tf.test.TestCase, parameterized.TestCase):
             "token_ids": tf.constant([[0, 581, 63773, 2]]),
             "padding_mask": tf.constant([[1, 1, 1, 1]]),
         }
-        model = XLMRobertaBackbone.from_preset(
-            "xlm_roberta_base", load_weights=load_weights
+        model = DebertaV3Backbone.from_preset(
+            "deberta_v3_extra_small", load_weights=load_weights
         )
         outputs = model(input_data)
         if load_weights:
             outputs = outputs[0, 0, :5]
-            expected = [0.084763, 0.097018, 0.051329, -0.000805, 0.028415]
+            expected = [0.418, -0.116, -0.122, -1.847, -0.035]
             self.assertAllClose(outputs, expected, atol=0.01, rtol=0.01)
 
     @parameterized.named_parameters(
@@ -77,8 +75,8 @@ class XLMRobertaPresetSmokeTest(tf.test.TestCase, parameterized.TestCase):
     )
     def test_classifier_output(self, load_weights):
         input_data = tf.constant(["The quick brown fox."])
-        model = XLMRobertaClassifier.from_preset(
-            "xlm_roberta_base", load_weights=load_weights
+        model = DebertaV3Classifier.from_preset(
+            "deberta_v3_extra_small", load_weights=load_weights
         )
         # Never assert output values, as the head weights are random.
         model.predict(input_data)
@@ -91,8 +89,8 @@ class XLMRobertaPresetSmokeTest(tf.test.TestCase, parameterized.TestCase):
             "token_ids": tf.constant([[0, 581, 63773, 2]]),
             "padding_mask": tf.constant([[1, 1, 1, 1]]),
         }
-        model = XLMRobertaClassifier.from_preset(
-            "xlm_roberta_base",
+        model = DebertaV3Classifier.from_preset(
+            "deberta_v3_extra_small",
             load_weights=load_weights,
             preprocessor=None,
         )
@@ -100,10 +98,10 @@ class XLMRobertaPresetSmokeTest(tf.test.TestCase, parameterized.TestCase):
         model.predict(input_data)
 
     @parameterized.named_parameters(
-        ("xlm_roberta_tokenizer", XLMRobertaTokenizer),
-        ("xlm_roberta_preprocessor", XLMRobertaPreprocessor),
-        ("xlm_roberta", XLMRobertaBackbone),
-        ("xlm_roberta_classifier", XLMRobertaClassifier),
+        ("deberta_tokenizer", DebertaV3Tokenizer),
+        ("deberta_preprocessor", DebertaV3Preprocessor),
+        ("deberta", DebertaV3Backbone),
+        ("deberta_classifier", DebertaV3Classifier),
     )
     def test_preset_docstring(self, cls):
         """Check we did our docstring formatting correctly."""
@@ -111,33 +109,33 @@ class XLMRobertaPresetSmokeTest(tf.test.TestCase, parameterized.TestCase):
             self.assertRegex(cls.from_preset.__doc__, name)
 
     @parameterized.named_parameters(
-        ("xlm_roberta_tokenizer", XLMRobertaTokenizer),
-        ("xlm_roberta_preprocessor", XLMRobertaPreprocessor),
-        ("xlm_roberta", XLMRobertaBackbone),
-        ("xlm_roberta_classifier", XLMRobertaClassifier),
+        ("deberta_tokenizer", DebertaV3Tokenizer),
+        ("deberta_preprocessor", DebertaV3Preprocessor),
+        ("deberta", DebertaV3Backbone),
+        ("deberta_classifier", DebertaV3Classifier),
     )
     def test_unknown_preset_error(self, cls):
         # Not a preset name
         with self.assertRaises(ValueError):
-            cls.from_preset("xlm_roberta_base_clowntown")
+            cls.from_preset("deberta_v3_extra_small_clowntown")
 
 
 @pytest.mark.extra_large
-class XLMRobertaPresetFullTest(tf.test.TestCase, parameterized.TestCase):
+class DebertaV3PresetFullTest(tf.test.TestCase, parameterized.TestCase):
     """
     Test the full enumeration of our preset.
 
-    This tests every XLM-RoBERTa preset and is only run manually.
+    This tests every DeBERTa preset and is only run manually.
     Run with:
-    `pytest keras_nlp/models/xlm_roberta/xlm_roberta_presets_test.py --run_extra_large`
+    `pytest keras_nlp/models/deberta/deberta_presets_test.py --run_extra_large`
     """
 
     @parameterized.named_parameters(
         ("preset_weights", True), ("random_weights", False)
     )
-    def test_load_xlm_roberta(self, load_weights):
-        for preset in XLMRobertaBackbone.presets:
-            model = XLMRobertaBackbone.from_preset(
+    def test_load_deberta(self, load_weights):
+        for preset in DebertaV3Backbone.presets:
+            model = DebertaV3Backbone.from_preset(
                 preset, load_weights=load_weights
             )
             input_data = {
@@ -151,9 +149,9 @@ class XLMRobertaPresetFullTest(tf.test.TestCase, parameterized.TestCase):
     @parameterized.named_parameters(
         ("preset_weights", True), ("random_weights", False)
     )
-    def test_load_xlm_roberta_classifier(self, load_weights):
-        for preset in XLMRobertaClassifier.presets:
-            classifier = XLMRobertaClassifier.from_preset(
+    def test_load_deberta_classifier(self, load_weights):
+        for preset in DebertaV3Classifier.presets:
+            classifier = DebertaV3Classifier.from_preset(
                 preset,
                 num_classes=4,
                 load_weights=load_weights,
@@ -164,11 +162,9 @@ class XLMRobertaPresetFullTest(tf.test.TestCase, parameterized.TestCase):
     @parameterized.named_parameters(
         ("preset_weights", True), ("random_weights", False)
     )
-    def test_load_xlm_roberta_classifier_without_preprocessing(
-        self, load_weights
-    ):
-        for preset in XLMRobertaClassifier.presets:
-            classifier = XLMRobertaClassifier.from_preset(
+    def test_load_deberta_classifier_without_preprocessing(self, load_weights):
+        for preset in DebertaV3Classifier.presets:
+            classifier = DebertaV3Classifier.from_preset(
                 preset,
                 num_classes=4,
                 load_weights=load_weights,
@@ -185,11 +181,11 @@ class XLMRobertaPresetFullTest(tf.test.TestCase, parameterized.TestCase):
             classifier.predict(input_data)
 
     def test_load_tokenizers(self):
-        for preset in XLMRobertaTokenizer.presets:
-            tokenizer = XLMRobertaTokenizer.from_preset(preset)
+        for preset in DebertaV3Tokenizer.presets:
+            tokenizer = DebertaV3Tokenizer.from_preset(preset)
             tokenizer("The quick brown fox.")
 
     def test_load_preprocessors(self):
-        for preset in XLMRobertaPreprocessor.presets:
-            preprocessor = XLMRobertaPreprocessor.from_preset(preset)
+        for preset in DebertaV3Preprocessor.presets:
+            preprocessor = DebertaV3Preprocessor.from_preset(preset)
             preprocessor("The quick brown fox.")

@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for XLM-RoBERTa classification model."""
+"""Tests for DeBERTa classification model."""
 
 import io
 import os
@@ -21,19 +21,19 @@ import tensorflow as tf
 from absl.testing import parameterized
 from tensorflow import keras
 
-from keras_nlp.models.xlm_roberta.xlm_roberta_backbone import XLMRobertaBackbone
-from keras_nlp.models.xlm_roberta.xlm_roberta_classifier import (
-    XLMRobertaClassifier,
+from keras_nlp.models.deberta_v3.deberta_v3_backbone import DebertaV3Backbone
+from keras_nlp.models.deberta_v3.deberta_v3_classifier import (
+    DebertaV3Classifier,
 )
-from keras_nlp.models.xlm_roberta.xlm_roberta_preprocessor import (
-    XLMRobertaPreprocessor,
+from keras_nlp.models.deberta_v3.deberta_v3_preprocessor import (
+    DebertaV3Preprocessor,
 )
-from keras_nlp.models.xlm_roberta.xlm_roberta_preprocessor import (
-    XLMRobertaTokenizer,
+from keras_nlp.models.deberta_v3.deberta_v3_preprocessor import (
+    DebertaV3Tokenizer,
 )
 
 
-class XLMRobertaClassifierTest(tf.test.TestCase, parameterized.TestCase):
+class DebertaV3ClassifierTest(tf.test.TestCase, parameterized.TestCase):
     def setUp(self):
         bytes_io = io.BytesIO()
         vocab_data = tf.data.Dataset.from_tensor_slices(
@@ -44,28 +44,34 @@ class XLMRobertaClassifierTest(tf.test.TestCase, parameterized.TestCase):
             model_writer=bytes_io,
             vocab_size=10,
             model_type="WORD",
-            unk_id=0,
+            pad_id=0,
             bos_id=1,
             eos_id=2,
+            unk_id=3,
+            pad_piece="[PAD]",
+            bos_piece="[CLS]",
+            eos_piece="[SEP]",
+            unk_piece="[UNK]",
         )
-        self.preprocessor = XLMRobertaPreprocessor(
-            tokenizer=XLMRobertaTokenizer(proto=bytes_io.getvalue()),
+        self.preprocessor = DebertaV3Preprocessor(
+            tokenizer=DebertaV3Tokenizer(proto=bytes_io.getvalue()),
             sequence_length=12,
         )
-        self.backbone = XLMRobertaBackbone(
+        self.backbone = DebertaV3Backbone(
             vocabulary_size=1000,
             num_layers=2,
             num_heads=2,
             hidden_dim=64,
             intermediate_dim=128,
             max_sequence_length=128,
+            bucket_size=64,
         )
-        self.classifier = XLMRobertaClassifier(
+        self.classifier = DebertaV3Classifier(
             self.backbone,
             4,
             preprocessor=self.preprocessor,
         )
-        self.classifier_no_preprocessing = XLMRobertaClassifier(
+        self.classifier_no_preprocessing = DebertaV3Classifier(
             self.backbone,
             4,
             preprocessor=None,
@@ -133,7 +139,7 @@ class XLMRobertaClassifierTest(tf.test.TestCase, parameterized.TestCase):
         restored_model = keras.models.load_model(save_path)
 
         # Check we got the real object back.
-        self.assertIsInstance(restored_model, XLMRobertaClassifier)
+        self.assertIsInstance(restored_model, DebertaV3Classifier)
 
         # Check that output matches.
         restored_output = restored_model.predict(self.raw_batch)

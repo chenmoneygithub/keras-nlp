@@ -11,31 +11,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""DistilBERT classification model."""
+"""DeBERTa classification model."""
 
 import copy
 
 from tensorflow import keras
 
-from keras_nlp.models.distil_bert.distil_bert_backbone import DistilBertBackbone
-from keras_nlp.models.distil_bert.distil_bert_backbone import (
-    distilbert_kernel_initializer,
+from keras_nlp.models.deberta_v3.deberta_v3_backbone import DebertaV3Backbone
+from keras_nlp.models.deberta_v3.deberta_v3_backbone import (
+    deberta_kernel_initializer,
 )
-from keras_nlp.models.distil_bert.distil_bert_preprocessor import (
-    DistilBertPreprocessor,
+from keras_nlp.models.deberta_v3.deberta_v3_preprocessor import (
+    DebertaV3Preprocessor,
 )
-from keras_nlp.models.distil_bert.distil_bert_presets import backbone_presets
+from keras_nlp.models.deberta_v3.deberta_v3_presets import backbone_presets
 from keras_nlp.utils.pipeline_model import PipelineModel
 from keras_nlp.utils.python_utils import classproperty
 from keras_nlp.utils.python_utils import format_docstring
 
 
 @keras.utils.register_keras_serializable(package="keras_nlp")
-class DistilBertClassifier(PipelineModel):
-    """An end-to-end DistilBERT model for classification tasks.
+class DebertaV3Classifier(PipelineModel):
+    """An end-to-end DeBERTa model for classification tasks.
 
     This model attaches a classification head to a
-    `keras_nlp.model.DistilBertBackbone` model, mapping from the backbone
+    `keras_nlp.model.DebertaV3Backbone` model, mapping from the backbone
     outputs to logit output suitable for a classification task. For usage of
     this model with pre-trained weights, see the `from_preset()` method.
 
@@ -47,15 +47,15 @@ class DistilBertClassifier(PipelineModel):
     Disclaimer: Pre-trained models are provided on an "as is" basis, without
     warranties or conditions of any kind. The underlying model is provided by a
     third party and subject to a separate license, available
-    [here](https://github.com/huggingface/transformers).
+    [here](https://github.com/microsoft/DeBERTa).
 
     Args:
-        backbone: A `keras_nlp.models.DistilBert` instance.
+        backbone: A `keras_nlp.models.DebertaV3` instance.
         num_classes: int. Number of classes to predict.
         hidden_dim: int. The size of the pooler layer.
-        dropout: float. The dropout probability value, applied after the first
-            dense layer.
-        preprocessor: A `keras_nlp.models.DistilBertPreprocessor` or `None`. If
+        dropout: float. Dropout probability applied to the pooled output. For
+            the second dropout layer, `backbone.dropout` is used.
+        preprocessor: A `keras_nlp.models.DebertaV3Preprocessor` or `None`. If
             `None`, this model will not apply preprocessing, and inputs should
             be preprocessed before calling the model.
 
@@ -68,18 +68,19 @@ class DistilBertClassifier(PipelineModel):
     }
     labels = [0, 3]
 
-    # Randomly initialized DistilBertBackbone
-    backbone = keras_nlp.models.DistilBertBackbone(
-        vocabulary_size=30552,
-        num_layers=6,
+    # Randomly initialized DeBERTa encoder
+    backbone = keras_nlp.models.DebertaV3Backbone(
+        vocabulary_size=128100,
+        num_layers=12,
         num_heads=12,
         hidden_dim=768,
         intermediate_dim=3072,
-        max_sequence_length=512
+        max_sequence_length=12,
+        bucket_size=6,
     )
 
-    # Create a DistilBertClassifier and fit your data.
-    classifier = keras_nlp.models.DistilBertClassifier(
+    # Create a DeBERTa classifier and fit your data.
+    classifier = keras_nlp.models.DebertaV3Classifier(
         backbone,
         num_classes=4,
         preprocessor=None,
@@ -96,7 +97,7 @@ class DistilBertClassifier(PipelineModel):
         backbone,
         num_classes=2,
         hidden_dim=None,
-        dropout=0.2,
+        dropout=0.0,
         preprocessor=None,
         **kwargs,
     ):
@@ -104,17 +105,17 @@ class DistilBertClassifier(PipelineModel):
         if hidden_dim is None:
             hidden_dim = backbone.hidden_dim
 
-        x = backbone(inputs)[:, backbone.cls_token_index, :]
+        x = backbone(inputs)[:, backbone.start_token_index, :]
+        x = keras.layers.Dropout(dropout, name="pooled_dropout")(x)
         x = keras.layers.Dense(
             hidden_dim,
-            activation="relu",
-            kernel_initializer=distilbert_kernel_initializer(),
+            activation=lambda x: keras.activations.gelu(x, approximate=False),
             name="pooled_dense",
         )(x)
-        x = keras.layers.Dropout(dropout, name="classifier_dropout")(x)
+        x = keras.layers.Dropout(backbone.dropout, name="classifier_dropout")(x)
         outputs = keras.layers.Dense(
             num_classes,
-            kernel_initializer=distilbert_kernel_initializer(),
+            kernel_initializer=deberta_kernel_initializer(),
             name="logits",
         )(x)
 
@@ -137,12 +138,12 @@ class DistilBertClassifier(PipelineModel):
 
     @property
     def backbone(self):
-        """A `keras_nlp.models.DistilBertBackbone` submodel."""
+        """A `keras_nlp.models.DebertaV3Backbone` submodel."""
         return self._backbone
 
     @property
     def preprocessor(self):
-        """A `keras_nlp.models.DistilBertPreprocessor` preprocessing layer."""
+        """A `keras_nlp.models.DebertaV3Preprocessor` preprocessing layer."""
         return self._preprocessor
 
     def get_config(self):
@@ -200,9 +201,9 @@ class DistilBertClassifier(PipelineModel):
         features = ["The quick brown fox jumped.", "I forgot my homework."]
         labels = [0, 3]
 
-        # Create a DistilBertClassifier and fit your data.
-        classifier = keras_nlp.models.DistilBertClassifier.from_preset(
-            "distil_bert_base_en_uncased",
+        # Create a DebertaV3Classifier and fit your data.
+        classifier = keras_nlp.models.DebertaV3Classifier.from_preset(
+            "deberta_base",
             num_classes=4,
         )
         classifier.compile(
@@ -218,13 +219,14 @@ class DistilBertClassifier(PipelineModel):
         labels = [0, 3]
 
         # Use a shorter sequence length.
-        preprocessor = keras_nlp.models.DistilBertBackbone.from_preset(
-            "bert_base_en_uncased",
+        preprocessor = keras_nlp.models.DebertaV3Preprocessor.from_preset(
+            "deberta_base",
             sequence_length=128,
         )
-        # Create a DistilBertClassifier and fit your data.
-        classifier = keras_nlp.models.DistilBertClassifier.from_preset(
-            "bert_base_en_uncased",
+
+        # Create a DebertaV3Classifier and fit your data.
+        classifier = keras_nlp.models.DebertaV3Classifier.from_preset(
+            "deberta_base",
             num_classes=4,
             preprocessor=preprocessor,
         )
@@ -239,18 +241,15 @@ class DistilBertClassifier(PipelineModel):
         # Create a dataset with preprocessed features in an `(x, y)` format.
         preprocessed_features = {
             "token_ids": tf.ones(shape=(2, 12), dtype=tf.int64),
-            "segment_ids": tf.constant(
-                [[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0]] * 2, shape=(2, 12)
-            ),
             "padding_mask": tf.constant(
                 [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]] * 2, shape=(2, 12)
             ),
         }
         labels = [0, 3]
 
-        # Create a DistilBERT classifier and fit your data.
-        classifier = keras_nlp.models.DistilBertClassifier.from_preset(
-            "bert_base_en_uncased",
+        # Create a DebertaV3Classifier and fit your data.
+        classifier = keras_nlp.models.DebertaV3Classifier.from_preset(
+            "deberta_base",
             num_classes=4,
             preprocessor=None,
         )
@@ -261,11 +260,11 @@ class DistilBertClassifier(PipelineModel):
         ```
         """
         if "preprocessor" not in kwargs:
-            kwargs["preprocessor"] = DistilBertPreprocessor.from_preset(preset)
+            kwargs["preprocessor"] = DebertaV3Preprocessor.from_preset(preset)
 
         # Check if preset is backbone-only model
-        if preset in DistilBertBackbone.presets:
-            backbone = DistilBertBackbone.from_preset(preset, load_weights)
+        if preset in DebertaV3Backbone.presets:
+            backbone = DebertaV3Backbone.from_preset(preset, load_weights)
             return cls(backbone, **kwargs)
 
         # Otherwise must be one of class presets
